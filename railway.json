@@ -1,0 +1,9 @@
+{
+    "builds": [
+      {
+        "src": "server",
+        "use": "@railway/builders/node"
+      }
+    ]
+  }
+  
