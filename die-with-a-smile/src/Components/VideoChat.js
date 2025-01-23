@@ -35,6 +35,10 @@ const VideoChat = () => {
               userVideo.current.srcObject = userStream;
             });
 
+            peer.on("ice-candidate", (candidate) => {
+              socket.emit("ice-candidate", candidate, roomId); // Send ICE candidates
+            });
+
             socket.on("answer", (answer) => {
               peer.signal(answer);  // Receive answer from the other user
             });
