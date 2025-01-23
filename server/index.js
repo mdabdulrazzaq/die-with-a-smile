@@ -25,6 +25,21 @@ io.on("connection", (socket) => {
       socket.broadcast.to(roomId).emit("user-disconnected", userId);
     });
   });
+
+  // Handle WebRTC signaling for offer
+  socket.on("offer", (offer, roomId) => {
+    socket.broadcast.to(roomId).emit("offer", offer);
+  });
+
+  // Handle WebRTC signaling for answer
+  socket.on("answer", (answer, roomId) => {
+    socket.broadcast.to(roomId).emit("answer", answer);
+  });
+
+  // Handle ICE candidates
+  socket.on("ice-candidate", (candidate, roomId) => {
+    socket.broadcast.to(roomId).emit("ice-candidate", candidate);
+  });
 });
 
 server.listen(8080, () => {
