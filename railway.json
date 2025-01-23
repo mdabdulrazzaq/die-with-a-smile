@@ -1,4 +1,9 @@
 {
-    "root": "./server"
+    "builds": [
+      {
+        "src": "server",
+        "use": "@railway/builders/node"
+      }
+    ]
   }
   
