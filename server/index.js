@@ -21,14 +21,30 @@ io.on("connection", (socket) => {
   socket.on("join-room", (roomId, userId) => {
     socket.join(roomId);
     console.log(`User ${userId} joined room ${roomId}`);
+  
+    const users = io.sockets.adapter.rooms.get(roomId);
+    if (users.size === 1) {
+      console.log(`User ${userId} is the initiator in room ${roomId}`);
+      socket.emit("assign-initiator", true); // First user is the initiator
+    }
+  
     socket.broadcast.to(roomId).emit("user-connected", userId);
-
-    // Handle User Disconnection
     socket.on("disconnect", () => {
-      console.log(`User ${userId} disconnected from room ${roomId}`);
-      socket.broadcast.to(roomId).emit("user-disconnected", userId);
-    });
+        console.log(`User ${userId} disconnected from room ${roomId}`);
+        socket.broadcast.to(roomId).emit("user-disconnected", userId);
+      });
   });
+//   socket.on("join-room", (roomId, userId) => {
+//     socket.join(roomId);
+//     console.log(`User ${userId} joined room ${roomId}`);
+//     socket.broadcast.to(roomId).emit("user-connected", userId);
+
+//     // Handle User Disconnection
+//     socket.on("disconnect", () => {
+//       console.log(`User ${userId} disconnected from room ${roomId}`);
+//       socket.broadcast.to(roomId).emit("user-disconnected", userId);
+//     });
+//   });
 
   // 🔹 Handle WebRTC Offer
   socket.on("offer", (offer, roomId) => {
@@ -44,9 +60,9 @@ io.on("connection", (socket) => {
 
   // 🔹 Handle ICE Candidates
   socket.on("ice-candidate", (candidate, roomId) => {
-    console.log("Relaying ICE candidate to room:", roomId);
+    console.log(`Relaying ICE candidate for room: ${roomId}, candidate:`, candidate);
     socket.broadcast.to(roomId).emit("ice-candidate", candidate);
-  });
+  });  
 });
 
 server.listen(8080, () => {
