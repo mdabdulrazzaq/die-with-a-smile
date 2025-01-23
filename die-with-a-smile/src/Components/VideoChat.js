@@ -55,11 +55,32 @@ const VideoChat = () => {
               stream: myVideo.current.srcObject, // Attach the local stream
               config: {
                 iceServers: [
-                  { urls: "stun:stun.l.google.com:19302" },
-                  { urls: "turn:a.relay.metered.ca:80", username: "free", credential: "free" }
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" },
+                    { urls: "stun:stun2.l.google.com:19302" },
+                    {
+                        urls: "turn:relay1.expressturn.com:3478",
+                        username: "efJBE34Dfd",
+                        credential: "7sdw9knsd2"
+                    }
                 ]
-              }
+            }
             });
+            peer.on("signal", (data) => {
+              console.log("Sending WebRTC Signal:", data);
+              socket.emit("offer", data, roomId);
+          });
+          
+          socket.on("offer", (offer) => {
+              console.log("Received WebRTC Offer:", offer);
+              peer.signal(offer);
+          });
+          
+          socket.on("answer", (answer) => {
+              console.log("Received WebRTC Answer:", answer);
+              peer.signal(answer);
+          });
+          
             peer.on("connect", () => {
               console.log("Peer-to-peer connection established");
             });
@@ -82,7 +103,13 @@ const VideoChat = () => {
               peer.signal(offer); // Accept the received offer
               peerRef.current = peer;
             });
-
+            peer.on("iceStateChange", (state) => {
+              console.log("ICE Connection State:", state);
+          });
+          
+          peer.on("iceCandidate", (candidate) => {
+              console.log("ICE Candidate received:", candidate);
+          });
             peer.on("icecandidate", (event) => {
               console.log("ohooo")
               if (event.candidate) {
