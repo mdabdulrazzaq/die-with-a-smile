@@ -28,26 +28,34 @@ const VideoChat = () => {
             });
 
             peer.on("signal", (data) => {
-              socket.emit("sending-signal", { userId, signal: data });
+              socket.emit("offer", data, roomId);  // Send offer to the other user
             });
 
             peer.on("stream", (userStream) => {
               userVideo.current.srcObject = userStream;
             });
 
-            socket.on("returning-signal", (signal) => {
-              peer.signal(signal);
+            peer.on("ice-candidate", (candidate) => {
+              socket.emit("ice-candidate", candidate, roomId); // Send ICE candidates
+            });
+
+            socket.on("answer", (answer) => {
+              peer.signal(answer);  // Receive answer from the other user
+            });
+
+            socket.on("ice-candidate", (candidate) => {
+              peer.addIceCandidate(candidate);  // Add ICE candidate
             });
 
             peerRef.current = peer;
           });
-        });
 
-      socket.on("user-disconnected", () => {
-        if (peerRef.current) {
-          peerRef.current.destroy();
-        }
-      });
+          socket.on("user-disconnected", () => {
+            if (peerRef.current) {
+              peerRef.current.destroy();
+            }
+          });
+        });
     }
   }, [joined, roomId]);
 
@@ -55,6 +63,11 @@ const VideoChat = () => {
     const newRoomId = uuidV4();
     setRoomId(newRoomId);
     setJoined(true);
+  };
+
+  const joinRoom = () => {
+    setJoined(true);
+    socket.emit("join-room", roomId, socket.id);
   };
 
   return (
@@ -67,7 +80,7 @@ const VideoChat = () => {
             value={roomId}
             onChange={(e) => setRoomId(e.target.value)}
           />
-          <button onClick={() => setJoined(true)}>Join Room</button>
+          <button onClick={joinRoom}>Join Room</button>
           <button onClick={createRoom}>Create Room</button>
         </div>
       ) : (
