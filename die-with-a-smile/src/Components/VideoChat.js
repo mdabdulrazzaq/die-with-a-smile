@@ -32,10 +32,11 @@ const VideoChat = () => {
           // 🔹 User Joins: Start a WebRTC connection
           socket.on("user-connected", (userId) => {
             console.log("User connected:", userId);
-            startPeerConnection(true, stream);
+            startPeerConnection(true, myVideo.current.srcObject); // Ensure we send our video stream
           });
 
           // 🔹 Handle Incoming Offer: Create Answer
+          
           socket.on("offer", (offer) => {
             console.log("Received offer:", offer);
             
@@ -43,17 +44,40 @@ const VideoChat = () => {
               initiator: false,  // This user is responding, not initiating
               trickle: false,
               stream: myVideo.current.srcObject, // Attach the local stream
+              // config: {
+              //   iceServers: [
+              //     { urls: "stun:stun.l.google.com:19302" },  // Free STUN server
+              //     {
+              //       urls: "turn:TURN_SERVER_URL",  // Replace with a real TURN server
+              //       username: "TURN_USERNAME",
+              //       credential: "TURN_PASSWORD",
+              //     }
+              //   ]
+              // }
             });
-
+            peer.on("connect", () => {
+              console.log("Peer-to-peer connection established");
+            });
+            
             peer.on("signal", (data) => {
               socket.emit("answer", data, roomId);  // Send the answer back
             });
 
             peer.on("stream", (userStream) => {
-              userVideo.current.srcObject = userStream; // Set the remote stream
+              console.log("Receiving remote stream:", userStream);
+              
+              if (userVideo.current) {
+                userVideo.current.srcObject = userStream;
+                userVideo.current.play();
+              } else {
+                console.error("userVideo ref is not available");
+              }
+              peer.signal(offer); // Accept the received offer
+              peerRef.current = peer;
             });
 
             peer.on("icecandidate", (event) => {
+              console.log("ohooo")
               if (event.candidate) {
                 socket.emit("ice-candidate", event.candidate, roomId);
               }
@@ -75,7 +99,10 @@ const VideoChat = () => {
           socket.on("ice-candidate", (candidate) => {
             console.log("Received ICE candidate:", candidate);
             if (peerRef.current) {
-              peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+              peerRef.current.addIceCandidate(new RTCIceCandidate(candidate))
+                .catch(err => console.error("Error adding ICE candidate:", err));
+            } else {
+              console.error("Peer reference is missing when receiving ICE candidate.");
             }
           });
 
@@ -152,8 +179,8 @@ const VideoChat = () => {
       ) : (
         <div>
           <h2>Room ID: {roomId}</h2>
-          <video ref={myVideo} autoPlay muted />
-          <video ref={userVideo} autoPlay />
+          <video ref={myVideo} autoPlay playsInline muted />
+          <video ref={userVideo} autoPlay playsInline/>
         </div>
       )}
     </div>

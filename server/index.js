@@ -15,7 +15,7 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("A user connected:", socket.id);
+  console.log("A user connected: Divyaaa", socket.id);
 
   // 🔹 Handle User Joining a Room
   socket.on("join-room", (roomId, userId) => {
