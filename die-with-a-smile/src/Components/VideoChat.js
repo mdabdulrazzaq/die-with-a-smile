@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 import Peer from "simple-peer";
 import { v4 as uuidV4 } from "uuid";
 
-const socket = io("http://localhost:5001");
+const socket = io("https://die-with-a-smile-production.up.railway.app");
 
 const VideoChat = () => {
   const [roomId, setRoomId] = useState("");
