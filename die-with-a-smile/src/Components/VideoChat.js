@@ -20,51 +20,81 @@ const VideoChat = () => {
         .then((stream) => {
           myVideo.current.srcObject = stream;
 
+          // 🔹 User Joins: Start a WebRTC connection
           socket.on("user-connected", (userId) => {
-            const peer = new Peer({
-              initiator: true,
-              trickle: false,
-              stream: stream,
-            });
-
-            peer.on("signal", (data) => {
-              socket.emit("offer", data, roomId);  // Send offer to the other user
-            });
-
-            peer.on("stream", (userStream) => {
-              userVideo.current.srcObject = userStream;
-            });
-
-            peer.on("ice-candidate", (candidate) => {
-              socket.emit("ice-candidate", candidate, roomId); // Send ICE candidates
-            });
-
-            socket.on("answer", (answer) => {
-              peer.signal(answer);  // Receive answer from the other user
-            });
-
-            socket.on("ice-candidate", (candidate) => {
-              peer.addIceCandidate(candidate);  // Add ICE candidate
-            });
-
-            peerRef.current = peer;
+            console.log("User connected:", userId);
+            startPeerConnection(true, stream);
           });
 
+          // 🔹 Handle Incoming Offer: Create Answer
+          socket.on("offer", (offer) => {
+            console.log("Received offer:", offer);
+            startPeerConnection(false, stream, offer);
+          });
+
+          // 🔹 Handle Answer (for Initiator)
+          socket.on("answer", (answer) => {
+            console.log("Received answer:", answer);
+            peerRef.current.signal(answer);
+          });
+
+          // 🔹 Handle ICE Candidates
+          socket.on("ice-candidate", (candidate) => {
+            console.log("Received ICE candidate:", candidate);
+            peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+          });
+
+          // 🔹 Handle Disconnection
           socket.on("user-disconnected", () => {
             if (peerRef.current) {
               peerRef.current.destroy();
             }
           });
-        });
+        })
+        .catch(error => console.error("Error accessing media devices:", error));
     }
   }, [joined, roomId]);
 
+  // 🔹 Function to Create WebRTC Connection
+  const startPeerConnection = (initiator, stream, offer = null) => {
+    const peer = new Peer({
+      initiator: initiator, // true for first user, false for second
+      trickle: false,
+      stream: stream,
+    });
+
+    peer.on("signal", (data) => {
+      if (initiator) {
+        socket.emit("offer", data, roomId); // Send Offer if Initiator
+      } else {
+        socket.emit("answer", data, roomId); // Send Answer if Not Initiator
+      }
+    });
+
+    peer.on("stream", (userStream) => {
+      console.log("Received remote stream");
+      userVideo.current.srcObject = userStream;
+    });
+
+    peer.on("ice-candidate", (candidate) => {
+      socket.emit("ice-candidate", candidate, roomId);
+    });
+
+    if (offer) {
+      peer.signal(offer); // If not initiator, respond to offer
+    }
+
+    peerRef.current = peer;
+  };
+
+  // 🔹 Create Room Function
   const createRoom = () => {
     const newRoomId = uuidV4();
     setRoomId(newRoomId);
     setJoined(true);
   };
 
+  // 🔹 Join Room Function
   const joinRoom = () => {
     setJoined(true);
     socket.emit("join-room", roomId, socket.id);

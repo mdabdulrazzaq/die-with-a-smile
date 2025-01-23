@@ -17,27 +17,34 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log("A user connected:", socket.id);
 
+  // 🔹 Handle User Joining a Room
   socket.on("join-room", (roomId, userId) => {
     socket.join(roomId);
+    console.log(`User ${userId} joined room ${roomId}`);
     socket.broadcast.to(roomId).emit("user-connected", userId);
 
+    // Handle User Disconnection
     socket.on("disconnect", () => {
+      console.log(`User ${userId} disconnected from room ${roomId}`);
       socket.broadcast.to(roomId).emit("user-disconnected", userId);
     });
   });
 
-  // Handle WebRTC signaling for offer
+  // 🔹 Handle WebRTC Offer
   socket.on("offer", (offer, roomId) => {
+    console.log("Relaying offer to room:", roomId);
     socket.broadcast.to(roomId).emit("offer", offer);
   });
 
-  // Handle WebRTC signaling for answer
+  // 🔹 Handle WebRTC Answer
   socket.on("answer", (answer, roomId) => {
+    console.log("Relaying answer to room:", roomId);
     socket.broadcast.to(roomId).emit("answer", answer);
   });
 
-  // Handle ICE candidates
+  // 🔹 Handle ICE Candidates
   socket.on("ice-candidate", (candidate, roomId) => {
+    console.log("Relaying ICE candidate to room:", roomId);
     socket.broadcast.to(roomId).emit("ice-candidate", candidate);
   });
 });
