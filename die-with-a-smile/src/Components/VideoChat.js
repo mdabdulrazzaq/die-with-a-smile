@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import Peer from "simple-peer";
 import { v4 as uuidV4 } from "uuid";
+import process from "process";
+window.process = process;
+
 
 const socket = io("https://die-with-a-smile-production.up.railway.app");
 
@@ -12,6 +15,12 @@ const VideoChat = () => {
   const userVideo = useRef();
   const peerRef = useRef();
 
+  useEffect(() => {
+    if (userVideo.current && userVideo.current.srcObject === null) {
+      console.log("Reconnecting video stream...");
+      userVideo.current.srcObject = peerRef.current.streams[0];
+    }
+  }, [peerRef.current]);
   useEffect(() => {
     console.log("hi");
     if (joined) {
@@ -36,39 +45,37 @@ const VideoChat = () => {
           });
 
           // 🔹 Handle Incoming Offer: Create Answer
-          
+
           socket.on("offer", (offer) => {
             console.log("Received offer:", offer);
-            
+
             const peer = new Peer({
               initiator: false,  // This user is responding, not initiating
               trickle: false,
               stream: myVideo.current.srcObject, // Attach the local stream
-              // config: {
-              //   iceServers: [
-              //     { urls: "stun:stun.l.google.com:19302" },  // Free STUN server
-              //     {
-              //       urls: "turn:TURN_SERVER_URL",  // Replace with a real TURN server
-              //       username: "TURN_USERNAME",
-              //       credential: "TURN_PASSWORD",
-              //     }
-              //   ]
-              // }
+              config: {
+                iceServers: [
+                  { urls: "stun:stun.l.google.com:19302" },
+                  { urls: "turn:a.relay.metered.ca:80", username: "free", credential: "free" }
+                ]
+              }
             });
             peer.on("connect", () => {
               console.log("Peer-to-peer connection established");
             });
-            
+
             peer.on("signal", (data) => {
               socket.emit("answer", data, roomId);  // Send the answer back
             });
 
             peer.on("stream", (userStream) => {
               console.log("Receiving remote stream:", userStream);
-              
+
               if (userVideo.current) {
                 userVideo.current.srcObject = userStream;
-                userVideo.current.play();
+                userVideo.current
+                  .play()
+                  .catch((error) => console.log("Video play error: ", error));
               } else {
                 console.error("userVideo ref is not available");
               }
@@ -98,6 +105,9 @@ const VideoChat = () => {
           // 🔹 Handle ICE Candidates
           socket.on("ice-candidate", (candidate) => {
             console.log("Received ICE candidate:", candidate);
+            if (candidate) {
+              peerRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+            }
             if (peerRef.current) {
               peerRef.current.addIceCandidate(new RTCIceCandidate(candidate))
                 .catch(err => console.error("Error adding ICE candidate:", err));
@@ -115,7 +125,7 @@ const VideoChat = () => {
         })
         .catch(error => console.error("Error accessing media devices:", error));
     }
-}, [joined, roomId]);
+  }, [joined, roomId]);
 
 
   // 🔹 Function to Create WebRTC Connection
@@ -180,7 +190,7 @@ const VideoChat = () => {
         <div>
           <h2>Room ID: {roomId}</h2>
           <video ref={myVideo} autoPlay playsInline muted />
-          <video ref={userVideo} autoPlay playsInline/>
+          <video ref={userVideo} autoPlay playsInline />
         </div>
       )}
     </div>
