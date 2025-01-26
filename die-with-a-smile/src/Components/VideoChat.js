@@ -7,46 +7,59 @@ const socket = io("https://die-with-a-smile-production.up.railway.app");
 const VideoChat = () => {
   const [roomId, setRoomId] = useState("");
   const [joined, setJoined] = useState(false);
-  const [peers, setPeers] = useState([]);
   const myVideo = useRef();
-  const userVideos = useRef({}); // Store videos for each user
+  const userVideo = useRef();
+  const peers = useRef({}); // Store peers by userId
   const streamRef = useRef();
 
   useEffect(() => {
     if (joined) {
+      // Request access to user media
       navigator.mediaDevices
         .getUserMedia({ video: true, audio: true })
         .then((stream) => {
           myVideo.current.srcObject = stream;
           streamRef.current = stream;
 
+          // Join the room
           socket.emit("join-room", roomId, socket.id);
 
+          // Handle user connections
           socket.on("user-connected", (userId) => {
+            console.log("User connected:", userId);
             const peer = createPeer(userId, socket.id, stream);
-            setPeers((prev) => [...prev, { peer, userId }]);
+            peers.current[userId] = peer;
           });
 
+          // Handle incoming offer
           socket.on("offer", (offer, senderId) => {
+            console.log("Received offer from:", senderId);
             const peer = addPeer(offer, senderId, stream);
-            setPeers((prev) => [...prev, { peer, userId: senderId }]);
+            peers.current[senderId] = peer;
           });
 
+          // Handle incoming answer
           socket.on("answer", (answer, senderId) => {
-            const peerObj = peers.find((p) => p.userId === senderId);
-            if (peerObj) peerObj.peer.signal(answer);
+            console.log("Received answer from:", senderId);
+            if (peers.current[senderId]) {
+              peers.current[senderId].signal(answer);
+            }
           });
 
+          // Handle incoming ICE candidate
           socket.on("ice-candidate", (candidate, senderId) => {
-            const peerObj = peers.find((p) => p.userId === senderId);
-            if (peerObj) peerObj.peer.signal(candidate);
+            console.log("Received ICE candidate from:", senderId);
+            if (peers.current[senderId]) {
+              peers.current[senderId].signal(candidate);
+            }
           });
 
+          // Handle user disconnection
           socket.on("user-disconnected", (userId) => {
-            const peerObj = peers.find((p) => p.userId === userId);
-            if (peerObj) {
-              peerObj.peer.destroy();
-              setPeers((prev) => prev.filter((p) => p.userId !== userId));
+            console.log("User disconnected:", userId);
+            if (peers.current[userId]) {
+              peers.current[userId].destroy();
+              delete peers.current[userId];
             }
           });
         })
@@ -59,14 +72,24 @@ const VideoChat = () => {
       initiator: true,
       trickle: false,
       stream,
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { 
+            urls: "turn:your-turn-server.com", 
+            username: "your-username", 
+            credential: "your-credential" 
+          },
+        ],
+      },
     });
 
     peer.on("signal", (signal) => {
       socket.emit("offer", signal, userToSignal);
     });
 
-    peer.on("stream", (userStream) => {
-      addVideoStream(userStream, userToSignal);
+    peer.on("stream", (remoteStream) => {
+      userVideo.current.srcObject = remoteStream;
     });
 
     return peer;
@@ -83,23 +106,12 @@ const VideoChat = () => {
       socket.emit("answer", signal, callerId);
     });
 
-    peer.on("stream", (userStream) => {
-      addVideoStream(userStream, callerId);
+    peer.on("stream", (remoteStream) => {
+      userVideo.current.srcObject = remoteStream;
     });
 
     peer.signal(incomingSignal);
     return peer;
-  };
-
-  const addVideoStream = (stream, userId) => {
-    if (!userVideos.current[userId]) {
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.playsInline = true;
-      userVideos.current[userId] = video;
-      document.body.appendChild(video); // Replace with better DOM handling
-    }
   };
 
   const createRoom = () => {
@@ -129,6 +141,7 @@ const VideoChat = () => {
         <div>
           <h2>Room ID: {roomId}</h2>
           <video ref={myVideo} autoPlay playsInline muted />
+          <video ref={userVideo} autoPlay playsInline />
         </div>
       )}
     </div>
