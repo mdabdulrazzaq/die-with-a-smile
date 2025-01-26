@@ -20,36 +20,32 @@ io.on("connection", (socket) => {
   socket.on("join-room", (roomId, userId) => {
     socket.join(roomId);
     console.log(`User ${userId} joined room ${roomId}`);
-  
-    const users = io.sockets.adapter.rooms.get(roomId);
-    if (users.size === 1) {
-      console.log(`User ${userId} is the initiator in room ${roomId}`);
-      socket.emit("assign-initiator", true);
-    }
-  
+
+    // Notify other users in the room
     socket.broadcast.to(roomId).emit("user-connected", userId);
-    
+
+    socket.on("offer", (offer, targetId) => {
+      console.log("Relaying offer to:", targetId);
+      socket.to(targetId).emit("offer", offer, userId);
+    });
+
+    socket.on("answer", (answer, targetId) => {
+      console.log("Relaying answer to:", targetId);
+      socket.to(targetId).emit("answer", answer, userId);
+    });
+
+    socket.on("ice-candidate", (candidate, targetId) => {
+      console.log("Relaying ICE candidate to:", targetId);
+      socket.to(targetId).emit("ice-candidate", candidate, userId);
+    });
+
     socket.on("disconnect", () => {
       console.log(`User ${userId} disconnected from room ${roomId}`);
       socket.broadcast.to(roomId).emit("user-disconnected", userId);
     });
   });
-
-  socket.on("offer", (offer, roomId) => {
-    console.log("Relaying offer to room:", roomId);
-    socket.broadcast.to(roomId).emit("offer", offer);
-  });
-
-  socket.on("answer", (answer, roomId) => {
-    console.log("Relaying answer to room:", roomId);
-    socket.broadcast.to(roomId).emit("answer", answer);
-  });
-
-  socket.on("ice-candidate", (candidate, roomId) => {
-    console.log(`Relaying ICE candidate for room: ${roomId}`, candidate);
-    socket.broadcast.to(roomId).emit("ice-candidate", candidate);
-  });
 });
+
 
 server.listen(8080, () => {
   console.log("Server running on port 8080");
