@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { FaceMesh } from "@mediapipe/face_mesh";
+import * as drawing from "@mediapipe/drawing_utils";
 
 const SmileDetection = ({ videoRef, user }) => {
   const [smileScore, setSmileScore] = useState(0);
+  const [stableScore, setStableScore] = useState(0);
+  const canvasRef = useRef(null);
+  const scoreHistory = useRef([]); // Store recent scores for smoothing
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    if (!videoRef.current || !canvasRef.current) return;
 
-    // Initialize FaceMesh
     const faceMesh = new FaceMesh({
       locateFile: (file) =>
         `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
@@ -21,16 +24,26 @@ const SmileDetection = ({ videoRef, user }) => {
     });
 
     faceMesh.onResults((results) => {
-      if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw face mesh landmarks
+      if (results.multiFaceLandmarks) {
         const landmarks = results.multiFaceLandmarks[0];
+        drawing.drawConnectors(ctx, landmarks, FaceMesh.FACEMESH_TESSELATION, {
+          color: "#00FF00",
+          lineWidth: 1,
+        });
+        drawing.drawLandmarks(ctx, landmarks, { color: "#FF0000", radius: 1 });
 
         // Extract key landmarks for smile detection
         const leftMouthCorner = landmarks[61];
         const rightMouthCorner = landmarks[291];
         const upperLip = landmarks[13];
         const lowerLip = landmarks[14];
-        const leftEye = landmarks[159];
-        const rightEye = landmarks[386];
 
         // Calculate distances
         const horizontalDistance = Math.sqrt(
@@ -43,37 +56,43 @@ const SmileDetection = ({ videoRef, user }) => {
             Math.pow(lowerLip.y - upperLip.y, 2)
         );
 
-        const eyeDistance = Math.sqrt(
-          Math.pow(rightEye.x - leftEye.x, 2) +
-            Math.pow(rightEye.y - leftEye.y, 2)
+        // Calculate smile intensity
+        const smileIntensity = horizontalDistance / verticalDistance;
+
+        // Normalize the score
+        const normalizedSmileScore = Math.min(
+          Math.max(smileIntensity * 100, 0),
+          100
         );
 
-        // Calculate smile intensity
-        const smileIntensity =
-          (horizontalDistance / verticalDistance) * 2 - eyeDistance * 0.5;
+        // Add score to history for smoothing
+        scoreHistory.current.push(normalizedSmileScore);
+        if (scoreHistory.current.length > 10) {
+          scoreHistory.current.shift(); // Keep the last 10 scores
+        }
 
-        // Normalize and set smile score
-        const normalizedSmileScore = Math.min(Math.max(smileIntensity * 100, 0), 100);
+        // Calculate the smoothed score (moving average)
+        const smoothedScore =
+          scoreHistory.current.reduce((a, b) => a + b, 0) /
+          scoreHistory.current.length;
+
         setSmileScore(normalizedSmileScore);
+        setStableScore(smoothedScore);
       } else {
         setSmileScore(0);
+        setStableScore(0);
       }
     });
 
     // Video processing
+    const videoElement = videoRef.current;
     const startDetection = async () => {
-      const canvas = document.createElement("canvas");
-      const videoElement = videoRef.current;
-
       const processFrame = async () => {
         if (videoElement.readyState >= 2) {
-          canvas.width = videoElement.videoWidth;
-          canvas.height = videoElement.videoHeight;
+          canvasRef.current.width = videoElement.videoWidth;
+          canvasRef.current.height = videoElement.videoHeight;
 
-          const context = canvas.getContext("2d");
-          context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
-
-          await faceMesh.send({ image: canvas });
+          await faceMesh.send({ image: videoElement });
         }
         requestAnimationFrame(processFrame);
       };
@@ -88,29 +107,20 @@ const SmileDetection = ({ videoRef, user }) => {
     };
   }, [videoRef]);
 
-  // Emoji representation
   const getEmoji = () => {
-    if (smileScore > 80) return "😁";
-    if (smileScore > 60) return "😊";
-    if (smileScore > 40) return "🙂";
-    if (smileScore > 20) return "😐";
+    if (stableScore > 80) return "😁";
+    if (stableScore > 60) return "😊";
+    if (stableScore > 40) return "🙂";
+    if (stableScore > 20) return "😐";
     return "😢";
-  };
-
-  // Smile description
-  const getSmileDescription = () => {
-    if (smileScore > 80) return "Big Smile";
-    if (smileScore > 60) return "Smiling";
-    if (smileScore > 40) return "Neutral";
-    if (smileScore > 20) return "Frowning";
-    return "Sad";
   };
 
   return (
     <div style={{ textAlign: "center", margin: "20px" }}>
       <h3>
-        {user}'s Smile Score: <span>{smileScore.toFixed(0)}</span> {getEmoji()}
+        {user}'s Smile Score: <span>{stableScore.toFixed(0)}</span> {getEmoji()}
       </h3>
+      <canvas ref={canvasRef} style={{ width: "100%", maxHeight: "300px" }} />
       <div
         style={{
           background: "#e0e0e0",
@@ -126,14 +136,11 @@ const SmileDetection = ({ videoRef, user }) => {
           style={{
             height: "100%",
             background: "#4caf50",
-            width: `${smileScore}%`,
+            width: `${stableScore}%`,
             transition: "width 0.3s ease",
           }}
         ></div>
       </div>
-      <p style={{ fontSize: "18px", fontWeight: "bold" }}>
-        {getSmileDescription()}
-      </p>
     </div>
   );
 };
