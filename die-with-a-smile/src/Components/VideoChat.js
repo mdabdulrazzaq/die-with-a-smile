@@ -130,8 +130,8 @@ const VideoChat = () => {
           <h2>Room ID: {roomId}</h2>
           <video ref={myVideo} autoPlay playsInline muted />
           <video ref={userVideo} autoPlay playsInline />
-          <SmileDetection videoRef={myVideo} user="Your" />
-          <SmileDetection videoRef={userVideo} user="Other User" />
+          {myVideo && <SmileDetection videoRef={myVideo} user="Your" />}
+          {userVideo && <SmileDetection videoRef={userVideo} user="Other User" />}
         </div>
       )}
     </div>

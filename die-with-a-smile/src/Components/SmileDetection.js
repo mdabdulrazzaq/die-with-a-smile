@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaceMesh } from "@mediapipe/face_mesh";
 
 const SmileDetection = ({ videoRef, user }) => {
+    console.log("video reffff", videoRef)
   const [smileScore, setSmileScore] = useState(0);
 
   useEffect(() => {

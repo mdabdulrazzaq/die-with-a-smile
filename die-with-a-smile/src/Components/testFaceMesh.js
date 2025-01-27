@@ -1,6 +1,6 @@
 import { FaceMesh } from "@mediapipe/face_mesh";
 
-const testFaceMesh = () => {
+const TestFaceMesh = () => {
   const faceMesh = new FaceMesh({
     locateFile: (file) =>
       `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
@@ -17,4 +17,4 @@ const testFaceMesh = () => {
     console.log("FaceMesh results:", results);
   });
 };
-testFaceMesh();
+export default TestFaceMesh();
