@@ -2,43 +2,40 @@ import React, { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import Peer from "simple-peer";
 import { v4 as uuidV4 } from "uuid";
+import SmileDetection from "./SmileDetection"; // Import SmileDetection
 
 const socket = io("https://die-with-a-smile-production.up.railway.app");
+
 const VideoChat = () => {
   const [roomId, setRoomId] = useState("");
   const [joined, setJoined] = useState(false);
   const myVideo = useRef();
   const userVideo = useRef();
-  const peers = useRef({}); // Store peers by userId
+  const peers = useRef({});
   const streamRef = useRef();
 
   useEffect(() => {
     if (joined) {
-      // Request access to user media
       navigator.mediaDevices
         .getUserMedia({ video: true, audio: true })
         .then((stream) => {
           myVideo.current.srcObject = stream;
           streamRef.current = stream;
 
-          // Join the room
           socket.emit("join-room", roomId, socket.id);
 
-          // Handle user connections
           socket.on("user-connected", (userId) => {
             console.log("User connected:", userId);
             const peer = createPeer(userId, socket.id, stream);
             peers.current[userId] = peer;
           });
 
-          // Handle incoming offer
           socket.on("offer", (offer, senderId) => {
             console.log("Received offer from:", senderId);
             const peer = addPeer(offer, senderId, stream);
             peers.current[senderId] = peer;
           });
 
-          // Handle incoming answer
           socket.on("answer", (answer, senderId) => {
             console.log("Received answer from:", senderId);
             if (peers.current[senderId]) {
@@ -46,7 +43,6 @@ const VideoChat = () => {
             }
           });
 
-          // Handle incoming ICE candidate
           socket.on("ice-candidate", (candidate, senderId) => {
             console.log("Received ICE candidate from:", senderId);
             if (peers.current[senderId]) {
@@ -54,7 +50,6 @@ const VideoChat = () => {
             }
           });
 
-          // Handle user disconnection
           socket.on("user-disconnected", (userId) => {
             console.log("User disconnected:", userId);
             if (peers.current[userId]) {
@@ -73,14 +68,7 @@ const VideoChat = () => {
       trickle: false,
       stream,
       config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { 
-            urls: "turn:your-turn-server.com", 
-            username: "your-username", 
-            credential: "your-credential" 
-          },
-        ],
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
       },
     });
 
@@ -142,6 +130,8 @@ const VideoChat = () => {
           <h2>Room ID: {roomId}</h2>
           <video ref={myVideo} autoPlay playsInline muted />
           <video ref={userVideo} autoPlay playsInline />
+          <SmileDetection videoRef={myVideo} user="Your" />
+          <SmileDetection videoRef={userVideo} user="Other User" />
         </div>
       )}
     </div>
