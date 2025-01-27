@@ -27,6 +27,10 @@ const SmileDetection = ({ videoRef, user }) => {
       const canvas = canvasRef.current;
       const ctx = canvas.getContext("2d");
 
+      // Match canvas size with video size
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+
       // Clear the canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -61,7 +65,7 @@ const SmileDetection = ({ videoRef, user }) => {
 
         // Normalize the score
         const normalizedSmileScore = Math.min(
-          Math.max(smileIntensity * 100, 0),
+          Math.max(smileIntensity , 0),
           100
         );
 
@@ -89,9 +93,6 @@ const SmileDetection = ({ videoRef, user }) => {
     const startDetection = async () => {
       const processFrame = async () => {
         if (videoElement.readyState >= 2) {
-          canvasRef.current.width = videoElement.videoWidth;
-          canvasRef.current.height = videoElement.videoHeight;
-
           await faceMesh.send({ image: videoElement });
         }
         requestAnimationFrame(processFrame);
@@ -116,11 +117,28 @@ const SmileDetection = ({ videoRef, user }) => {
   };
 
   return (
-    <div style={{ textAlign: "center", margin: "20px" }}>
-      <h3>
+    <div style={{ position: "relative", display: "inline-block" }}>
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        style={{ width: "100%", height: "auto", borderRadius: "10px" }}
+      />
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none", // Allow interaction with video
+        }}
+      />
+      <h3 style={{ textAlign: "center", margin: "10px 0" }}>
         {user}'s Smile Score: <span>{stableScore.toFixed(0)}</span> {getEmoji()}
       </h3>
-      <canvas ref={canvasRef} style={{ width: "100%", maxHeight: "300px" }} />
       <div
         style={{
           background: "#e0e0e0",
