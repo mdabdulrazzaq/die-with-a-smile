@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { FaceMesh } from "@mediapipe/face_mesh";
-import * as drawing from "@mediapipe/drawing_utils";
 
 const SmileDetection = ({ videoRef, user }) => {
   const [smileScore, setSmileScore] = useState(0);
@@ -8,27 +7,30 @@ const SmileDetection = ({ videoRef, user }) => {
   useEffect(() => {
     if (!videoRef.current) return;
 
+    // Initialize FaceMesh
     const faceMesh = new FaceMesh({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+      locateFile: (file) =>
+        `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
     });
 
     faceMesh.setOptions({
       maxNumFaces: 1,
       refineLandmarks: true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence: 0.5,
+      minDetectionConfidence: 0.7, // Increased for more stable detection
+      minTrackingConfidence: 0.7, // Increased for more stable tracking
     });
 
     faceMesh.onResults((results) => {
       if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
         const landmarks = results.multiFaceLandmarks[0];
 
-        // Calculate smile intensity based on mouth landmarks
-        const leftMouthCorner = landmarks[61]; // Left corner of the mouth
-        const rightMouthCorner = landmarks[291]; // Right corner of the mouth
-        const upperLip = landmarks[13]; // Upper lip center
-        const lowerLip = landmarks[14]; // Lower lip center
+        // Extract key landmarks for smile detection
+        const leftMouthCorner = landmarks[61];
+        const rightMouthCorner = landmarks[291];
+        const upperLip = landmarks[13];
+        const lowerLip = landmarks[14];
 
+        // Calculate distances
         const horizontalDistance = Math.sqrt(
           Math.pow(rightMouthCorner.x - leftMouthCorner.x, 2) +
             Math.pow(rightMouthCorner.y - leftMouthCorner.y, 2)
@@ -39,27 +41,33 @@ const SmileDetection = ({ videoRef, user }) => {
             Math.pow(lowerLip.y - upperLip.y, 2)
         );
 
-        const smileIntensity = (horizontalDistance / verticalDistance).toFixed(2);
-        setSmileScore(smileIntensity * 100); // Normalize score
+        // Calculate smile intensity
+        const smileIntensity = horizontalDistance / verticalDistance;
+
+        // Normalize and set smile score
+        const normalizedSmileScore = Math.min(smileIntensity * 100, 100); // Cap at 100
+        setSmileScore(normalizedSmileScore);
+      } else {
+        setSmileScore(0); // Reset smile score if no face detected
       }
     });
 
+    // Video streaming and processing
     const videoElement = videoRef.current;
-    const startDetection = async () => {
-      if (!videoElement) return;
-
-      const sendVideoToFaceMesh = async () => {
-        await faceMesh.send({ image: videoElement });
-        requestAnimationFrame(sendVideoToFaceMesh);
+    if (videoElement) {
+      const startDetection = async () => {
+        const processFrame = async () => {
+          await faceMesh.send({ image: videoElement });
+          requestAnimationFrame(processFrame);
+        };
+        processFrame();
       };
 
-      sendVideoToFaceMesh();
-    };
-
-    startDetection();
+      startDetection();
+    }
 
     return () => {
-      faceMesh.close();
+      faceMesh.close(); // Clean up resources when component unmounts
     };
   }, [videoRef]);
 
