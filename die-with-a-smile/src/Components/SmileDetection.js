@@ -16,8 +16,8 @@ const SmileDetection = ({ videoRef, user }) => {
     faceMesh.setOptions({
       maxNumFaces: 1,
       refineLandmarks: true,
-      minDetectionConfidence: 0.7, // Increased for more stable detection
-      minTrackingConfidence: 0.7, // Increased for more stable tracking
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7,
     });
 
     faceMesh.onResults((results) => {
@@ -45,29 +45,38 @@ const SmileDetection = ({ videoRef, user }) => {
         const smileIntensity = horizontalDistance / verticalDistance;
 
         // Normalize and set smile score
-        const normalizedSmileScore = Math.min(smileIntensity * 100, 100); // Cap at 100
+        const normalizedSmileScore = Math.min(smileIntensity * 100, 100);
         setSmileScore(normalizedSmileScore);
       } else {
-        setSmileScore(0); // Reset smile score if no face detected
+        setSmileScore(0);
       }
     });
 
-    // Video streaming and processing
-    const videoElement = videoRef.current;
-    if (videoElement) {
-      const startDetection = async () => {
-        const processFrame = async () => {
-          await faceMesh.send({ image: videoElement });
-          requestAnimationFrame(processFrame);
-        };
-        processFrame();
+    // Video processing with canvas fallback
+    const startDetection = async () => {
+      const canvas = document.createElement("canvas");
+      const videoElement = videoRef.current;
+
+      const processFrame = async () => {
+        if (videoElement.readyState >= 2) {
+          canvas.width = videoElement.videoWidth;
+          canvas.height = videoElement.videoHeight;
+
+          const context = canvas.getContext("2d");
+          context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+          await faceMesh.send({ image: canvas });
+        }
+        requestAnimationFrame(processFrame);
       };
 
-      startDetection();
-    }
+      processFrame();
+    };
+
+    startDetection();
 
     return () => {
-      faceMesh.close(); // Clean up resources when component unmounts
+      faceMesh.close();
     };
   }, [videoRef]);
 
