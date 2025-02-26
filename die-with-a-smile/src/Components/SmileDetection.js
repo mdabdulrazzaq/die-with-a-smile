@@ -109,7 +109,7 @@ const SmileDetection = ({ videoRef, user }) => {
   }, [videoRef]);
 
   const getEmoji = () => {
-    if (stableScore > 80) return "😁";
+    if (stableScore > 85) return "😁";
     if (stableScore > 60) return "😊";
     if (stableScore > 40) return "🙂";
     if (stableScore > 20) return "😐";
